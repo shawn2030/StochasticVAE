@@ -12,6 +12,7 @@ from training_config import (
     PLAN,
     PLAN_DECODER,
     LEARNING_RATE,
+    USER_INPUT_LOGVAR
 )
 from stochastic_vae import Stochastic_VAE
 from stochastic_recognition_model import Stochastic_Recognition_NN
@@ -38,7 +39,7 @@ def main():
     #################
 
     svae = Stochastic_VAE(
-        Stochastic_Recognition_NN(input_dim=784, z_dim=LATENT_DIM),
+        Stochastic_Recognition_NN(input_dim=784, z_dim=LATENT_DIM, user_input_logvar=USER_INPUT_LOGVAR),
         Stochastic_Density_NN(input_dim=784, z_dim=LATENT_DIM),
     )
 
@@ -69,6 +70,7 @@ def main():
             "LEARNING_RATE": LEARNING_RATE,
             "EPOCHS": EPOCHS,
             "BATCH_SIZE": BATCH_SIZE,
+            "USER_INPUT_LOGVAR": USER_INPUT_LOGVAR
         }
     )
     trainer.fit(model=svae, train_dataloaders=train_loader, val_dataloaders=val_loader)

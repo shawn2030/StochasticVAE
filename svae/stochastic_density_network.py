@@ -29,11 +29,11 @@ class Stochastic_Density_NN(nn.Module):
     def log_likelihood_gaussian(self, x, mu_z, logvar_z):
         return -0.5 * (logvar_z + (x - mu_z) ** 2 / logvar_z.exp()).sum(dim=-1)
 
-    def log_likelihood(self, x, recon_x):
+    def log_likelihood(self, x, recon_x, flatten_dim: int = 1):
         """Calculate p( x|mu,Sigma) for a gaussian with diagonal covariance."""
         # Flatten everything
-        x = torch.flatten(x, start_dim=1)
-        recon_x = torch.flatten(recon_x, start_dim=1)
+        x = torch.flatten(x, start_dim=flatten_dim)
+        recon_x = torch.flatten(recon_x, start_dim=flatten_dim)
         return self.log_likelihood_gaussian(x, recon_x, self.logvar_x)
 
     def forward(self, z):

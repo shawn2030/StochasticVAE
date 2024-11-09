@@ -81,6 +81,7 @@ class Stochastic_VAE(lit.LightningModule):
             x_grid = make_grid(x.view(-1, 1, 28, 28), nrow=8)
             recon_grid = make_grid(x_recon.view(-1, 1, 28, 28), nrow=8)
             # TODO - these are not visible in the UI for some reason
+            # TODO - will try using log_artifacts if it is provided
             self.logger.experiment.log_image(
                 key="inputs",
                 image=x_grid.cpu().permute(1, 2, 0).numpy(),

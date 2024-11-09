@@ -15,6 +15,7 @@ LATENT_DIM = 20
 LEARNING_RATE = 1e-5
 EPOCHS = 100
 BATCH_SIZE = 128
+USER_INPUT_LOGVAR = -2.5    # Make this a function of Epochs Deterministci -> Stochastic
 
 ########################
 ## Environment config ##
@@ -23,5 +24,7 @@ BATCH_SIZE = 128
 # Only let lightning 'see' one GPU, but can be overridden by setting the environment variable
 # CUDA_VISIBLE_DEVICES from outside the script.
 os.environ["CUDA_VISIBLE_DEVICES"] = os.getenv("CUDA_VISIBLE_DEVICES", "0")
-MLFLOW_TRACKING_URI = "/data/projects/SVAE/mlruns/"
+# MLFLOW_TRACKING_URI = "/data/projects/SVAE/mlruns/"
+MLFLOW_TRACKING_URI = "mlruns/"
+
 DATA_ROOT = "/data/datasets/"

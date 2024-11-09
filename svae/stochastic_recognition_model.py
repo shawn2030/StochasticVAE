@@ -65,7 +65,7 @@ class Stochastic_Recognition_NN(nn.Module):
 
     def kl(self, mu_z, logvar_z):
         """Calculate KL divergence between a diagonal gaussian and a standard normal."""
-        return -0.5 * torch.sum(1 + logvar_z - mu_z.pow(2) - logvar_z.exp())
+        return -0.5 * torch.sum(1 + logvar_z - mu_z.pow(2) - logvar_z.exp(), dim=-1)
 
     def forward(self, x):
         x = torch.flatten(x, start_dim=1)

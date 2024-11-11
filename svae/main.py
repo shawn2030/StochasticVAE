@@ -41,6 +41,8 @@ def main():
     svae = Stochastic_VAE(
         Stochastic_Recognition_NN(input_dim=784, z_dim=LATENT_DIM, user_input_logvar=USER_INPUT_LOGVAR),
         Stochastic_Density_NN(input_dim=784, z_dim=LATENT_DIM),
+        k_neighbor=4,
+        n_forward=8
     )
 
     #####################

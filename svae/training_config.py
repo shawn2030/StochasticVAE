@@ -7,6 +7,7 @@ import os
 PLAN = [500, 300, 200, 100, 50]
 PLAN_DECODER = [50, 100, 300, 500]
 LATENT_DIM = 20
+EPSILON = 1e-6
 
 #####################
 ## Training config ##
@@ -15,7 +16,7 @@ LATENT_DIM = 20
 LEARNING_RATE = 1e-5
 EPOCHS = 100
 BATCH_SIZE = 128
-USER_INPUT_LOGVAR = -2.5    # Make this a function of Epochs Deterministci -> Stochastic
+USER_INPUT_LOGVAR = -6    # Make this a function of Epochs Deterministci -> Stochastic
 
 ########################
 ## Environment config ##

@@ -2,8 +2,9 @@ import torch
 import torch.nn as nn
 from training_config import LATENT_DIM, LEARNING_RATE
 import lightning as lit
-from torchvision.utils import make_grid
+from torchvision.utils import make_grid, save_image
 from entropy import entropy_singh_2003_up_to_constants
+import os
 
 
 class Stochastic_VAE(lit.LightningModule):
@@ -98,13 +99,14 @@ class Stochastic_VAE(lit.LightningModule):
         return loss
 
     def validation_step(self, batch, batch_idx):
+        temp_dir = "svae/output"
         x, _ = batch
         loss, kl_term, reconstruction_term, entropy_term, x_recon = self.loss(x)
         self.log("val_loss", loss)
         self.log("val_kl", kl_term)
         self.log("val_reconstruction", reconstruction_term)
         self.log("val_entropy", entropy_term)
-        if batch_idx == 0:
+        if batch_idx % 10 == 0:
             # Log parameter stats
             self.log_dict(self.encoder.params_stats())
 
@@ -113,15 +115,26 @@ class Stochastic_VAE(lit.LightningModule):
             recon_grid = make_grid(x_recon.view(-1, 1, 28, 28), nrow=8)
             # TODO - these are not visible in the UI for some reason
             # TODO - will try using log_artifacts if it is provided
-            self.logger.experiment.log_image(
-                key="inputs",
-                image=x_grid.cpu().permute(1, 2, 0).numpy(),
-                run_id=self.logger.run_id,
-            )
-            self.logger.experiment.log_image(
-                key="reconstructions",
-                image=recon_grid.cpu().permute(1, 2, 0).numpy(),
-                run_id=self.logger.run_id,
-            )
+            # self.logger.experiment.log_image(
+            #     key="inputs",
+            #     image=x_grid.cpu().permute(1, 2, 0).numpy(),
+            #     run_id=self.logger.run_id,
+            # )
+            # self.logger.experiment.log_image(
+            #     key="reconstructions",
+            #     image=recon_grid.cpu().permute(1, 2, 0).numpy(),
+            #     run_id=self.logger.run_id,
+            # )
+
+            input_image_path = os.path.join(temp_dir, "inputs.png")
+            recon_image_path = os.path.join(temp_dir, "reconstructions.png")
+            save_image(x_grid, input_image_path)
+            save_image(recon_grid, recon_image_path)
+
+            run_id = self.logger.run_id 
+            self.logger.experiment.log_artifacts(local_dir=temp_dir, artifact_path="validation_images", run_id = run_id)
+
+            # os.remove(input_image_path)
+            # os.remove(recon_image_path)
 
         return loss

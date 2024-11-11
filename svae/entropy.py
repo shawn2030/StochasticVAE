@@ -1,5 +1,6 @@
 import torch
 import numpy as np
+from training_config import EPSILON
 
 
 LOGPI = np.log(np.pi)
@@ -51,5 +52,5 @@ def entropy_singh_2003_up_to_constants(
     # TODO - cache the vmap compilation (if it isn't already... see torch docs)
     # TODO - the '1' is a magic number meaning 'dim_batch'. Make this more explicit/an argument/something.
     knn_dist = torch.vmap(kth_nearest_neighbor_dist, in_dims=(1, None), out_dims=1)(x, k)
-    log_denominator = d * torch.log(knn_dist)
+    log_denominator = d * torch.log(torch.clip(knn_dist, min=EPSILON, max=None))
     return log_denominator.mean(dim=dim_samples)

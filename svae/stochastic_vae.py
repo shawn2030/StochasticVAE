@@ -33,6 +33,9 @@ class Stochastic_VAE(lit.LightningModule):
         z = mu_z + eps * std
 
         return z
+    
+    def log_det_fisher(self,multi_mu_z, multi_logvar_z):
+        return -2 * torch.sum(multi_logvar_z, dim=-1) + torch.tensor(LATENT_DIM) * torch.log(torch.tensor(2))
 
     def loss(self, x):
         batch_size = x.size(0)
@@ -48,7 +51,7 @@ class Stochastic_VAE(lit.LightningModule):
             dim_samples=0,
             dim_features=-1,
         )
-        fim_term = 0  # TODO
+        fim_term = 0.5 * self.log_det_fisher(multi_mu_z, multi_logvar_z).mean()
 
         # Sample from the approximate posterior
         z = self.reparameterize(multi_mu_z, multi_logvar_z)
@@ -95,6 +98,7 @@ class Stochastic_VAE(lit.LightningModule):
         self.log("train_kl", kl_term)
         self.log("train_reconstruction", reconstruction_term)
         self.log("train_entropy", entropy_term)
+        # TODO -  Log mu_z and logvar_z terms
 
         return loss
 

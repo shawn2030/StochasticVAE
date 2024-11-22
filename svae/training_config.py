@@ -14,9 +14,9 @@ EPSILON = 1e-6
 #####################
 
 LEARNING_RATE = 1e-5
-EPOCHS = 100
+EPOCHS = 1000
 BATCH_SIZE = 128
-USER_INPUT_LOGVAR = -6    # Make this a function of Epochs Deterministci -> Stochastic
+USER_INPUT_LOGVAR = -10    # Make this a function of Epochs Deterministci -> Stochastic
 
 ########################
 ## Environment config ##

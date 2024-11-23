@@ -82,6 +82,7 @@ def main():
         trainer.fit(model=svae, train_dataloaders=train_loader, val_dataloaders=val_loader)
 
     if args.test:      
+        # TODO - change this checkppint loading to the best model dynamically if possible
         checkpoint = torch.load("603393962448548868/86612901fb1f45d1bc694a796628f854/checkpoints/epoch=999-step=469000.ckpt")
         test_svae = Stochastic_VAE(Stochastic_Recognition_NN(input_dim=784, z_dim=LATENT_DIM, user_input_logvar=USER_INPUT_LOGVAR),
                                 Stochastic_Density_NN(input_dim=784, z_dim=LATENT_DIM),

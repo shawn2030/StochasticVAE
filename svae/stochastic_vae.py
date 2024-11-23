@@ -71,7 +71,7 @@ class Stochastic_VAE(lit.LightningModule):
         fancy_stochastic_elbo = entropy_term - kl_term + 1 / 2 * fim_term + reconstruction_term
         loss = -fancy_stochastic_elbo.mean()
 
-        return loss, kl_term.mean(), reconstruction_term.mean(), entropy_term.mean(), x_recon[0]
+        return loss, kl_term.mean(), reconstruction_term.mean(), entropy_term.mean(), x_recon[0], multi_mu_z.mean(), multi_logvar_z.mean()
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
@@ -93,23 +93,24 @@ class Stochastic_VAE(lit.LightningModule):
 
     def training_step(self, batch, batch_idx):
         x, _ = batch
-        loss, kl_term, reconstruction_term, entropy_term, _ = self.loss(x)
+        loss, kl_term, reconstruction_term, entropy_term, _, multi_mu_z_mean, multi_logvar_z_mean = self.loss(x)
         self.log("train_loss", loss)
         self.log("train_kl", kl_term)
         self.log("train_reconstruction", reconstruction_term)
         self.log("train_entropy", entropy_term)
-        # TODO -  Log mu_z and logvar_z terms
 
         return loss
 
     def validation_step(self, batch, batch_idx):
         temp_dir = "svae/output"
         x, _ = batch
-        loss, kl_term, reconstruction_term, entropy_term, x_recon = self.loss(x)
+        loss, kl_term, reconstruction_term, entropy_term, x_recon, multi_mu_z_mean, multi_logvar_z_mean = self.loss(x)
         self.log("val_loss", loss)
         self.log("val_kl", kl_term)
         self.log("val_reconstruction", reconstruction_term)
         self.log("val_entropy", entropy_term)
+        self.log("multi_mu_z_mean", multi_mu_z_mean)
+        self.log("multi_logvar_z_mean", multi_logvar_z_mean)
         if batch_idx % 10 == 0:
             # Log parameter stats
             self.log_dict(self.encoder.params_stats())
@@ -117,18 +118,6 @@ class Stochastic_VAE(lit.LightningModule):
             # Log images
             x_grid = make_grid(x.view(-1, 1, 28, 28), nrow=8)
             recon_grid = make_grid(x_recon.view(-1, 1, 28, 28), nrow=8)
-            # TODO - these are not visible in the UI for some reason
-            # TODO - will try using log_artifacts if it is provided
-            # self.logger.experiment.log_image(
-            #     key="inputs",
-            #     image=x_grid.cpu().permute(1, 2, 0).numpy(),
-            #     run_id=self.logger.run_id,
-            # )
-            # self.logger.experiment.log_image(
-            #     key="reconstructions",
-            #     image=recon_grid.cpu().permute(1, 2, 0).numpy(),
-            #     run_id=self.logger.run_id,
-            # )
 
             input_image_path = os.path.join(temp_dir, "inputs.png")
             recon_image_path = os.path.join(temp_dir, "reconstructions.png")
@@ -138,7 +127,35 @@ class Stochastic_VAE(lit.LightningModule):
             run_id = self.logger.run_id 
             self.logger.experiment.log_artifacts(local_dir=temp_dir, artifact_path="validation_images", run_id = run_id)
 
-            # os.remove(input_image_path)
-            # os.remove(recon_image_path)
+            os.remove(input_image_path)
+            os.remove(recon_image_path)
 
         return loss
+    
+    def test_step(self, batch, batch_idx):
+        temp_dir = "svae/output"
+        x, _ = batch
+        loss, kl_term, reconstruction_term, entropy_term, x_recon, multi_mu_z_mean, multi_logvar_z_mean = self.loss(x)
+        self.log("test_loss", loss)
+        self.log("test_kl", kl_term)
+        # self.log("val_reconstruction", reconstruction_term)
+        # self.log("val_entropy", entropy_term)
+        self.log("test_multi_mu_z_mean", multi_mu_z_mean)
+        self.log("test_multi_logvar_z_mean", multi_logvar_z_mean)
+        
+        # Log parameter stats
+        self.log_dict(self.encoder.params_stats())
+
+        # Log images
+        x_grid = make_grid(x.view(-1, 1, 28, 28), nrow=8)
+        gen_img_grid = make_grid(x_recon.view(-1, 1, 28, 28), nrow=8)
+
+        gen_image_path = os.path.join(temp_dir, "generated_output.png")
+        save_image(gen_img_grid, gen_image_path)
+
+        run_id = self.logger.run_id 
+        self.logger.experiment.log_artifacts(local_dir=temp_dir, artifact_path="gen_images", run_id = run_id)
+
+        # os.remove(gen_image_path)
+
+        

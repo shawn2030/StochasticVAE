@@ -18,6 +18,9 @@ from stochastic_vae import Stochastic_VAE
 from stochastic_recognition_model import Stochastic_Recognition_NN
 from stochastic_density_network import Stochastic_Density_NN
 from pathlib import Path
+from argparse import ArgumentParser
+import torch
+
 
 
 def main():
@@ -75,8 +78,22 @@ def main():
             "USER_INPUT_LOGVAR": USER_INPUT_LOGVAR
         }
     )
-    trainer.fit(model=svae, train_dataloaders=train_loader, val_dataloaders=val_loader)
+    if args.train:
+        trainer.fit(model=svae, train_dataloaders=train_loader, val_dataloaders=val_loader)
+
+    if args.test:      
+        checkpoint = torch.load("603393962448548868/86612901fb1f45d1bc694a796628f854/checkpoints/epoch=999-step=469000.ckpt")
+        test_svae = Stochastic_VAE(Stochastic_Recognition_NN(input_dim=784, z_dim=LATENT_DIM, user_input_logvar=USER_INPUT_LOGVAR),
+                                Stochastic_Density_NN(input_dim=784, z_dim=LATENT_DIM),
+                                k_neighbor=4,
+                                n_forward=8)
+        test_svae.load_state_dict(checkpoint["state_dict"])
+        trainer.test(model=test_svae, dataloaders=train_loader)
 
 
 if __name__ == "__main__":
+    parser = ArgumentParser()
+    parser.add_argument("--train", default=False)
+    parser.add_argument("--test", default=False)
+    args = parser.parse_args()
     main()

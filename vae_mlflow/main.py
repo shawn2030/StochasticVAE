@@ -85,7 +85,7 @@ def test_VAE(test_loader, vae, device, num_examples=3):
                 z = vae.reparameterize(mu, sigma)
                 output = vae.decoder(z)
                 output = output.view(-1, 1, 28, 28)
-                save_image(output, f"output/generated_{d}_ex_{i}.png")
+                save_image(output, f"vae_mlflow/output/generated_{d}_ex_{i}.png")
 
 
 def main():
@@ -100,7 +100,7 @@ def main():
         ),
         download=True,
     )
-    train_loader = DataLoader(dataset=dataset, batch_size=BATCH_SIZE, shuffle=True)
+    train_loader = DataLoader(dataset=dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=64, pin_memory=True)
 
     vae = VAE(RecognitionModel(LATENT_DIM), DensityNet(LATENT_DIM))
     vae.parameters()  # [e.fc1, e.fc21, e.fc22, d.fc3, d.fc4, d.logvar]
@@ -111,7 +111,7 @@ def main():
 
         vae = train_model(train_loader, vae, optim_vae, DEVICE, NUM_EPOCHS)
 
-    # test_VAE(dataset, vae, DEVICE, num_examples=2)
+    test_VAE(dataset, vae, DEVICE, num_examples=2)
 
 
 if __name__ == "__main__":

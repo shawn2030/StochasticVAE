@@ -106,7 +106,7 @@ def main():
     vae.parameters()  # [e.fc1, e.fc21, e.fc22, d.fc3, d.fc4, d.logvar]
 
     optim_vae = torch.optim.Adam(vae.parameters(), lr=LR_RATE)
-    run_name = "VAE"
+    run_name = "LitSVAE"
     with mlflow.start_run(run_name=run_name) as run:
 
         vae = train_model(train_loader, vae, optim_vae, DEVICE, NUM_EPOCHS)

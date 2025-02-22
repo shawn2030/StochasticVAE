@@ -8,6 +8,7 @@ PLAN = [500, 300, 200, 100, 50]
 PLAN_DECODER = [50, 100, 300, 500]
 LATENT_DIM = 20
 EPSILON = 1e-6
+LAMBDA = 0.5
 
 #####################
 ## Training config ##

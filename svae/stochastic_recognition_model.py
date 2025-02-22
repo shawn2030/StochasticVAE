@@ -10,6 +10,7 @@ class Stochastic_Recognition_NN(nn.Module):
     def __init__(self, input_dim, z_dim, user_input_logvar=-20):
         super(Stochastic_Recognition_NN, self).__init__()
 
+        self.d = z_dim
         self.user_input_logvar = user_input_logvar
 
         self.weights_mean = nn.ParameterList()

@@ -78,7 +78,11 @@ def main():
             "USER_INPUT_LOGVAR": USER_INPUT_LOGVAR
         }
     )
-    if args.train:
+    # if args.train:
+    #     trainer.fit(model=svae, train_dataloaders=train_loader, val_dataloaders=val_loader)
+
+    # debug purposes
+    if True:
         trainer.fit(model=svae, train_dataloaders=train_loader, val_dataloaders=val_loader)
 
     if args.test:      

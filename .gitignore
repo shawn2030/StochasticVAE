@@ -6,3 +6,4 @@ dataset/
 svae/__pycache__/
 603393962448548868/
 svae/output/
+svae/mix_gaussians.py

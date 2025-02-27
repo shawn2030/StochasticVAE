@@ -77,7 +77,7 @@ class Stochastic_VAE(lit.LightningModule):
 
         # TODO - average (rather than sum) the loss over the batch dimension. In all parts of the
         #  loss calculation (recon, kl, entropy, etc.)
-        fancy_stochastic_elbo = entropy_term - kl_term + 1 / 2 * fim_term + reconstruction_term
+        fancy_stochastic_elbo = (1/LAMBDA)*entropy_term - kl_term + 1 / 2 * fim_term * (1/LAMBDA) + reconstruction_term
         loss = -fancy_stochastic_elbo.mean()
 
         return loss, kl_term.mean(), reconstruction_term.mean(), entropy_term.mean(), x_recon[0], multi_mu_z.mean(), multi_logvar_z.mean(), fim_term.mean()

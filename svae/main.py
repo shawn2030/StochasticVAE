@@ -12,7 +12,8 @@ from training_config import (
     PLAN,
     PLAN_DECODER,
     LEARNING_RATE,
-    USER_INPUT_LOGVAR
+    USER_INPUT_LOGVAR,
+    LAMBDA
 )
 from stochastic_vae import Stochastic_VAE
 from stochastic_recognition_model import Stochastic_Recognition_NN
@@ -75,7 +76,8 @@ def main():
             "LEARNING_RATE": LEARNING_RATE,
             "EPOCHS": EPOCHS,
             "BATCH_SIZE": BATCH_SIZE,
-            "USER_INPUT_LOGVAR": USER_INPUT_LOGVAR
+            "USER_INPUT_LOGVAR": USER_INPUT_LOGVAR,
+            "LAMBDA" : LAMBDA
         }
     )
     # if args.train:

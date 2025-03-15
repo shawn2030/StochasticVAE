@@ -17,7 +17,7 @@ class Stochastic_VAE(lit.LightningModule):
     z_dim = -1
 
     def __init__(
-        self, encoder: nn.Module, decoder: nn.Module, k_neighbor: int = 1, n_forward: int = 4
+        self, encoder: nn.Module, decoder: nn.Module, k_neighbor: int = 1, n_forward: int = 4, ablate_entropy: bool = False, ablate_fim: bool = False
     ):
         super(Stochastic_VAE, self).__init__()
 
@@ -30,6 +30,9 @@ class Stochastic_VAE(lit.LightningModule):
 
         self.vmap_encoder = torch.vmap(self.encoder, in_dims=self.n_forward_dim, out_dims=self.n_forward_dim, randomness="different")
         self.vmap_decoder = torch.vmap(self.decoder, in_dims=self.n_forward_dim, out_dims=self.n_forward_dim, randomness="error")
+
+        self.ablate_entropy = ablate_entropy
+        self.ablate_fim = ablate_fim
 
     def reparameterize(self, mu_z, logvar_z):
         """Sample from the approximate posterior using the reparameterization trick."""
@@ -77,7 +80,13 @@ class Stochastic_VAE(lit.LightningModule):
 
         # TODO - average (rather than sum) the loss over the batch dimension. In all parts of the
         #  loss calculation (recon, kl, entropy, etc.)
-        fancy_stochastic_elbo = (1/LAMBDA)*entropy_term - kl_term + 1 / 2 * fim_term * (1/LAMBDA) + reconstruction_term
+        if self.ablate_entropy:
+            entropy_term = entropy_term.detach()
+
+        if self.ablate_fim:
+            fim_term = fim_term.detach()
+            
+        fancy_stochastic_elbo = entropy_term - kl_term + 1 / 2 * fim_term * (1/LAMBDA) + reconstruction_term
         loss = -fancy_stochastic_elbo.mean()
 
         return loss, kl_term.mean(), reconstruction_term.mean(), entropy_term.mean(), x_recon[0], multi_mu_z.mean(), multi_logvar_z.mean(), fim_term.mean()
@@ -181,14 +190,14 @@ class Stochastic_VAE(lit.LightningModule):
         temp_dir = "svae/output"
         x, _ = batch
         loss, kl_term, reconstruction_term, entropy_term, x_recon, multi_mu_z_mean, multi_logvar_z_mean, fim_term = self.loss(x)
-        try:
-            loss_mog, _kl_term, __reconstruction_term, __x_recon = self.loss_mog(x, 30, 2)
-        except ValueError:
-            loss_mog = torch.nan
+        # try:
+        #     loss_mog, _kl_term, __reconstruction_term, __x_recon = self.loss_mog(x, 30, 2)
+        # except ValueError:
+        #     loss_mog = torch.nan
 
 
         self.log("val_loss", loss)
-        self.log("validation_sanity_check_on_elbo", loss_mog)
+        # self.log("validation_sanity_check_on_elbo", loss_mog)
         self.log("val_kl", kl_term)
         self.log("val_reconstruction", reconstruction_term)
         self.log("val_entropy", entropy_term)

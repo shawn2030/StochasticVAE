@@ -32,11 +32,11 @@ def main():
     train_dataset = datasets.MNIST(
         root=Path(DATA_ROOT) / "mnist", train=True, transform=transforms.ToTensor()
     )
-    train_loader = DataLoader(dataset=train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=8)
+    train_loader = DataLoader(dataset=train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=8, pin_memory=True)
     val_dataset = datasets.MNIST(
         root=Path(DATA_ROOT) / "mnist", train=False, transform=transforms.ToTensor()
     )
-    val_loader = DataLoader(dataset=val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=8)
+    val_loader = DataLoader(dataset=val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=8, pin_memory=True)
 
     #################
     ## Model setup ##
@@ -101,15 +101,6 @@ def main():
                 param.data = checkpoint["state_dict"][name]
                 param.requires_grad = False
 
-
-        # loaded_params = {k: p.detach().clone() for k, p in svae.named_parameters()}
-
-        # for k in init_params.keys():
-        #     if torch.allclose(init_params[k], loaded_params[k]):
-        #         print(k, "UNCHANGED")
-        #     else:
-        #         print(k, "OVERWRITTEN")
-
         trainer.fit(model=svae, train_dataloaders=train_loader, val_dataloaders=val_loader)
 
     if args.test:      
@@ -120,7 +111,20 @@ def main():
                                 k_neighbor=4,
                                 n_forward=8)
         test_svae.load_state_dict(checkpoint["state_dict"])
+
         trainer.test(model=test_svae, dataloaders=train_loader)
+
+    if args.infer_entropy_gap:
+        # pretrained on Lambda = 1.5
+        checkpoint = torch.load("603393962448548868/1613cc0c49214a4eb0168e8deb316517/checkpoints/epoch=999-step=469000.ckpt")
+
+        test_svae = Stochastic_VAE(Stochastic_Recognition_NN(input_dim=784, z_dim=LATENT_DIM, user_input_logvar=USER_INPUT_LOGVAR),
+                                Stochastic_Density_NN(input_dim=784, z_dim=LATENT_DIM),
+                                k_neighbor=4,
+                                n_forward=8)
+        test_svae.load_state_dict(checkpoint["state_dict"])
+        trainer.test(model=test_svae, dataloaders=train_loader)
+
 
 
 if __name__ == "__main__":
@@ -130,5 +134,6 @@ if __name__ == "__main__":
     parser.add_argument("--freeze_decoder", default=False)
     parser.add_argument("--ablate_entropy", default=False)
     parser.add_argument("--ablate_fim", default=False)
+    parser.add_argument("--infer_entropy_gap", default=False)
     args = parser.parse_args()
     main()

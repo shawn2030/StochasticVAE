@@ -91,6 +91,42 @@ class Stochastic_VAE(lit.LightningModule):
 
         return loss, kl_term.mean(), reconstruction_term.mean(), entropy_term.mean(), x_recon[0], multi_mu_z.mean(), multi_logvar_z.mean(), fim_term.mean()
 
+    def inference_entropy_gap_m_p(self, x):
+        x_stack = torch.stack([x] * self.n_forward, dim=self.n_forward_dim)
+
+        # Run the encoder (recognition model)
+        multi_mu_z, multi_logvar_z = self.vmap_encoder(x_stack)
+
+
+        # Sample from the approximate posterior
+        z = self.reparameterize(multi_mu_z, multi_logvar_z)
+        # print("Shape of multi z here is: ", str(z.shape))
+        
+        singh_entropy_term = entropy_singh_2003_up_to_constants(
+            z,
+            k=self.k_neighbor,
+            dim_samples=self.n_forward_dim,
+            dim_features=self.z_dim,
+        )
+
+        # Run the decoder (generative model)
+        x_recon = self.vmap_decoder(z)
+        reconstruction_term = self.decoder.log_likelihood(x_stack, x_recon, flatten_dim=2).mean(
+            dim=self.n_forward_dim
+        )
+
+        log_p_z = self.decoder.log_likelihood_gaussian(z, torch.zeros(1, device = z.device), torch.zeros(1, device = z.device)).mean(
+            dim=self.n_forward_dim
+        )
+
+        entropy_gap = (reconstruction_term + log_p_z) - singh_entropy_term   #shape [batch_size]
+
+        mean = entropy_gap.mean()
+        second_moment = (entropy_gap**2).mean()
+
+        return mean, second_moment
+
+    
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
         lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
@@ -228,11 +264,12 @@ class Stochastic_VAE(lit.LightningModule):
     def test_step(self, batch, batch_idx):
         temp_dir = "svae/output"
         x, _ = batch
-        loss, kl_term, reconstruction_term, entropy_term, x_recon, multi_mu_z_mean, multi_logvar_z_mean = self.loss(x)
-        loss_mog, kl_term, __reconstruction_term, __x_recon = self.loss_mog(x)
+        loss, kl_term, reconstruction_term, entropy_term, x_recon, multi_mu_z_mean, multi_logvar_z_mean, _ = self.loss(x)
+        entropy_gap_mean, entropy_gap_moment2 = self.inference_entropy_gap_m_p(x)
         self.log("test_loss", loss)
         self.log("test_kl", kl_term)
-        self.log("test sanity check on elbo", loss_mog)
+        self.log("entropy gap--m_p", entropy_gap_mean)
+        self.log("entropy gap second moment", entropy_gap_moment2)
         # self.log("val_reconstruction", reconstruction_term)
         # self.log("val_entropy", entropy_term)
         self.log("test_multi_mu_z_mean", multi_mu_z_mean)

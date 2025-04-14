@@ -13,7 +13,9 @@ from training_config import (
     PLAN_DECODER,
     LEARNING_RATE,
     USER_INPUT_LOGVAR,
-    LAMBDA
+    LAMBDA,
+    N_FORWARD_PASS,
+    NUMBER_OF_NEAREST_NEIGHBORS
 )
 from stochastic_vae import Stochastic_VAE
 from stochastic_recognition_model import Stochastic_Recognition_NN
@@ -32,11 +34,11 @@ def main():
     train_dataset = datasets.MNIST(
         root=Path(DATA_ROOT) / "mnist", train=True, transform=transforms.ToTensor()
     )
-    train_loader = DataLoader(dataset=train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=8, pin_memory=True)
+    train_loader = DataLoader(dataset=train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=4, pin_memory=True)
     val_dataset = datasets.MNIST(
         root=Path(DATA_ROOT) / "mnist", train=False, transform=transforms.ToTensor()
     )
-    val_loader = DataLoader(dataset=val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=8, pin_memory=True)
+    val_loader = DataLoader(dataset=val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=4, pin_memory=True)
 
     #################
     ## Model setup ##
@@ -48,8 +50,8 @@ def main():
     svae = Stochastic_VAE(
         Stochastic_Recognition_NN(input_dim=784, z_dim=LATENT_DIM, user_input_logvar=USER_INPUT_LOGVAR),
         Stochastic_Density_NN(input_dim=784, z_dim=LATENT_DIM),
-        k_neighbor=4,
-        n_forward=8,
+        k_neighbor=NUMBER_OF_NEAREST_NEIGHBORS,
+        n_forward=N_FORWARD_PASS,
         ablate_entropy=ablate_entropy,
         ablate_fim=ablate_fim
     )
@@ -82,7 +84,9 @@ def main():
             "EPOCHS": EPOCHS,
             "BATCH_SIZE": BATCH_SIZE,
             "USER_INPUT_LOGVAR": USER_INPUT_LOGVAR,
-            "LAMBDA" : LAMBDA
+            "LAMBDA" : LAMBDA,
+            "N_FORWARD_PASS" : N_FORWARD_PASS,
+            "NUMBER_OF_NEAREST_NEIGHBORS" : NUMBER_OF_NEAREST_NEIGHBORS
         }
     )
 
@@ -108,22 +112,38 @@ def main():
         checkpoint = torch.load("603393962448548868/86612901fb1f45d1bc694a796628f854/checkpoints/epoch=999-step=469000.ckpt")
         test_svae = Stochastic_VAE(Stochastic_Recognition_NN(input_dim=784, z_dim=LATENT_DIM, user_input_logvar=USER_INPUT_LOGVAR),
                                 Stochastic_Density_NN(input_dim=784, z_dim=LATENT_DIM),
-                                k_neighbor=4,
-                                n_forward=8)
+                                k_neighbor=NUMBER_OF_NEAREST_NEIGHBORS,
+                                n_forward=N_FORWARD_PASS)
         test_svae.load_state_dict(checkpoint["state_dict"])
 
-        trainer.test(model=test_svae, dataloaders=train_loader)
+        trainer.test(model=test_svae, dataloaders=val_loader)
 
     if args.infer_entropy_gap:
-        # pretrained on Lambda = 1.5
-        checkpoint = torch.load("603393962448548868/1613cc0c49214a4eb0168e8deb316517/checkpoints/epoch=999-step=469000.ckpt")
+        # pretrained on Lambda = 1.1 trained with a frozen decoder
+        # checkpoint = torch.load("603393962448548868/dfb6769bfc4541adbb6a4fea6f77ec17/checkpoints/epoch=999-step=469000.ckpt")
 
+        # pretrained on Lambda = 1.3 trained with a frozen decoder
+        # checkpoint = torch.load("603393962448548868/dfb6769bfc4541adbb6a4fea6f77ec17/checkpoints/epoch=999-step=469000.ckpt")
+
+        # pretrained on Lambda = 1.5 trained with a frozen decoder
+        # checkpoint = torch.load("603393962448548868/dfb6769bfc4541adbb6a4fea6f77ec17/checkpoints/epoch=999-step=469000.ckpt")
+
+         # pretrained on Lambda = 2 trained with a frozen decoder
+        # checkpoint = torch.load("603393962448548868/d74ef05ac03a4aa493813ced22a7ae63/checkpoints/epoch=999-step=469000.ckpt")
+
+        # pretrained on Lambda = 10 trained with a frozen decoder
+        # checkpoint = torch.load("603393962448548868/f24fee43e7df4b5caf4cf19077bfae2b/checkpoints/epoch=999-step=469000.ckpt")
+
+        # pretrained on Lambda = 100 trained with a frozen decoder
+        checkpoint = torch.load("603393962448548868/33995e5dfa3a493ab7675265f76e9e6f/checkpoints/epoch=999-step=469000.ckpt")
+
+        
         test_svae = Stochastic_VAE(Stochastic_Recognition_NN(input_dim=784, z_dim=LATENT_DIM, user_input_logvar=USER_INPUT_LOGVAR),
                                 Stochastic_Density_NN(input_dim=784, z_dim=LATENT_DIM),
-                                k_neighbor=4,
-                                n_forward=8)
+                                k_neighbor=NUMBER_OF_NEAREST_NEIGHBORS,
+                                n_forward=N_FORWARD_PASS)
         test_svae.load_state_dict(checkpoint["state_dict"])
-        trainer.test(model=test_svae, dataloaders=train_loader)
+        trainer.test(model=test_svae, dataloaders=val_loader)
 
 
 

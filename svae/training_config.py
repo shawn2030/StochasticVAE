@@ -8,8 +8,9 @@ PLAN = [500, 300, 200, 100, 50]
 PLAN_DECODER = [50, 100, 300, 500]
 LATENT_DIM = 20
 EPSILON = 1e-6
-LAMBDA = 10      # range [1, +inf]
-
+LAMBDA = 100      # range [1, +inf]
+NUMBER_OF_NEAREST_NEIGHBORS = 4
+N_FORWARD_PASS = 8
 #####################
 ## Training config ##
 #####################

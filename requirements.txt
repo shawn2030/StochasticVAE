@@ -4,6 +4,7 @@ mlflow
 lightning
 numpy
 pydot
+seaborn
 torch
 torchvision
 torchviz

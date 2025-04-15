@@ -23,6 +23,7 @@ from stochastic_density_network import Stochastic_Density_NN
 from pathlib import Path
 from argparse import ArgumentParser
 import torch
+import mlflow
 
 
 
@@ -120,16 +121,19 @@ def main():
 
     if args.infer_entropy_gap:
         # pretrained on Lambda = 1.1 trained with a frozen decoder
-        # checkpoint = torch.load("603393962448548868/dfb6769bfc4541adbb6a4fea6f77ec17/checkpoints/epoch=999-step=469000.ckpt")
+        # checkpoint = torch.load("603393962448548868/2db153191f05418bb4e5295945b085a3/checkpoints/epoch=999-step=469000.ckpt")
 
         # pretrained on Lambda = 1.3 trained with a frozen decoder
-        # checkpoint = torch.load("603393962448548868/dfb6769bfc4541adbb6a4fea6f77ec17/checkpoints/epoch=999-step=469000.ckpt")
+        # checkpoint = torch.load("603393962448548868/8653831daef54d948533d50a77029c4a/checkpoints/epoch=999-step=469000.ckpt")
 
         # pretrained on Lambda = 1.5 trained with a frozen decoder
         # checkpoint = torch.load("603393962448548868/dfb6769bfc4541adbb6a4fea6f77ec17/checkpoints/epoch=999-step=469000.ckpt")
 
-         # pretrained on Lambda = 2 trained with a frozen decoder
+        # pretrained on Lambda = 2 trained with a frozen decoder
         # checkpoint = torch.load("603393962448548868/d74ef05ac03a4aa493813ced22a7ae63/checkpoints/epoch=999-step=469000.ckpt")
+
+        # pretrained on Lambda = 5 trained with a frozen decoder
+        # checkpoint = torch.load("603393962448548868/3a4edbb246f54352b1e38a92de2b7848/checkpoints/epoch=999-step=469000.ckpt")
 
         # pretrained on Lambda = 10 trained with a frozen decoder
         # checkpoint = torch.load("603393962448548868/f24fee43e7df4b5caf4cf19077bfae2b/checkpoints/epoch=999-step=469000.ckpt")
@@ -137,7 +141,14 @@ def main():
         # pretrained on Lambda = 100 trained with a frozen decoder
         checkpoint = torch.load("603393962448548868/33995e5dfa3a493ab7675265f76e9e6f/checkpoints/epoch=999-step=469000.ckpt")
 
-        
+        mlflow.set_tags({
+                        "stage": "testing_inference",
+                        "data": "validation",
+                        "author": "Shounak Desai",
+                        "model": "Stochastic VAE",
+                        "lambda": LAMBDA,
+                        })
+                        
         test_svae = Stochastic_VAE(Stochastic_Recognition_NN(input_dim=784, z_dim=LATENT_DIM, user_input_logvar=USER_INPUT_LOGVAR),
                                 Stochastic_Density_NN(input_dim=784, z_dim=LATENT_DIM),
                                 k_neighbor=NUMBER_OF_NEAREST_NEIGHBORS,

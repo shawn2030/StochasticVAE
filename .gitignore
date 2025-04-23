@@ -5,6 +5,7 @@ dataset/
 .idea/
 svae/__pycache__/
 603393962448548868/
+787431091796413946/
 svae/output/
 svae/mix_gaussians.py
 svae/plot_reports.py

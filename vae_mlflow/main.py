@@ -9,12 +9,22 @@ import torchvision.datasets as datasets
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 from vae import VAE
-from training_config import NUM_EPOCHS, BATCH_SIZE, LATENT_DIM, LR_RATE, DEVICE
+from training_config import NUM_EPOCHS, BATCH_SIZE, LATENT_DIM, LR_RATE, DEVICE, DATA_ROOT
 from recognition_net import RecognitionModel
 from densitynet import DensityNet
 import mlflow
+from pathlib import Path
+from argparse import ArgumentParser
 
-mlflow.set_experiment("VAE")
+
+mlflow.set_experiment("LitSVAE_inference")
+mlflow.set_tags({
+                        "stage": "testing inference--entropy gap",
+                        "data": "validation",
+                        "author": "Shounak Desai",
+                        "model": "VAE",
+                        })
+                        
 
 
 def train_model(train_loader, model, optimizer, device, num_epochs=NUM_EPOCHS):
@@ -79,40 +89,69 @@ def test_VAE(test_loader, vae, device, num_examples=3):
 
     for d in range(10):
         with torch.no_grad():
-            mu, sigma = vae.encoder(images[d].view(1, 784))
+            z = vae.encoder(images[d].view(-1, 784).to(device))
+            z = z.view((-1, LATENT_DIM))
+            output = vae.decoder(z) 
+            # entropy_gap, secondmoment = vae.entropy_gap(images[d].view(1, 784))
+            output = output.view(-1, 1, 28, 28)
+            # save_image(output, f"vae_mlflow/output/generated_{d}_ex_{i}.png")
 
-            for i in range(num_examples):
-                z = vae.reparameterize(mu, sigma)
-                output = vae.decoder(z)
-                output = output.view(-1, 1, 28, 28)
-                save_image(output, f"vae_mlflow/output/generated_{d}_ex_{i}.png")
+
+def calculate_entropy_gap(test_loader, vae, device):
+    vae.eval()
+
+    with torch.no_grad():
+        for batch_idx, (x, _) in enumerate(test_loader):
+            x = x.to(device)
+            x = x.view(x.size(0), -1)  # Flatten
+            elbo, _, _, _=  vae.loss(x)
+            mlflow.log_metric("Test ELBO", elbo)
+
 
 
 def main():
-    dataset = datasets.MNIST(
-        root="dataset/",
-        train=True,
-        transform=transforms.Compose(
-            [
-                transforms.ToTensor()
-                # transforms.Normalize((0.5,), (0.5,))
-            ]
-        ),
-        download=True,
+    train_dataset = datasets.MNIST(
+        root=Path(DATA_ROOT) / "mnist", train=True, transform=transforms.ToTensor()
     )
-    train_loader = DataLoader(dataset=dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=64, pin_memory=True)
+    train_loader = DataLoader(dataset=train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=8, pin_memory=True)
+    val_dataset = datasets.MNIST(
+        root=Path(DATA_ROOT) / "mnist", train=False, transform=transforms.ToTensor()
+    )
+    val_loader = DataLoader(dataset=val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=8, pin_memory=True)
 
     vae = VAE(RecognitionModel(LATENT_DIM), DensityNet(LATENT_DIM))
     vae.parameters()  # [e.fc1, e.fc21, e.fc22, d.fc3, d.fc4, d.logvar]
 
     optim_vae = torch.optim.Adam(vae.parameters(), lr=LR_RATE)
-    run_name = "LitSVAE"
-    with mlflow.start_run(run_name=run_name) as run:
+
+    if args.train:
+        if mlflow.active_run():
+            mlflow.end_run()
+        with mlflow.start_run(run_name="VAE") as run:
+            vae = train_model(train_loader, vae, optim_vae, DEVICE, NUM_EPOCHS)
+            
+    if args.test:
+        with mlflow.start_run(run_name="VAE") as run:
+            test_VAE(val_loader, vae, DEVICE, num_examples=2)
+
+
+    if args.inference_entropy:
+        checkpoint = torch.load("603393962448548868/bc47b5faee3e4618aa8232ae44fb7980/checkpoints/epoch=999-step=469000.ckpt", map_location="cpu")
+
+        for name, param in vae.named_parameters():
+            if 'decoder' in name:
+                param.data = checkpoint["state_dict"][name]
+                param.requires_grad = False
 
         vae = train_model(train_loader, vae, optim_vae, DEVICE, NUM_EPOCHS)
+        calculate_entropy_gap(val_loader, vae, DEVICE)
 
-    test_VAE(dataset, vae, DEVICE, num_examples=2)
 
 
 if __name__ == "__main__":
+    parser = ArgumentParser()
+    parser.add_argument("--train", default=False)
+    parser.add_argument("--test", default=False)
+    parser.add_argument("--inference_entropy", default=False)
+    args = parser.parse_args()
     main()

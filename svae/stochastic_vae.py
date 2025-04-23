@@ -119,12 +119,12 @@ class Stochastic_VAE(lit.LightningModule):
             dim=self.n_forward_dim
         )
 
-        entropy_gap = (reconstruction_term + log_p_z) - singh_entropy_term   #shape [batch_size]
+        entropy_gap = -(reconstruction_term + log_p_z) - singh_entropy_term   #shape [batch_size]
 
         mean = entropy_gap.mean()
         second_moment = (entropy_gap**2).mean()
 
-        return mean, second_moment
+        return mean, second_moment, singh_entropy_term.mean()
 
     
     def configure_optimizers(self):
@@ -265,13 +265,14 @@ class Stochastic_VAE(lit.LightningModule):
         temp_dir = "svae/output"
         x, _ = batch
         loss, kl_term, reconstruction_term, entropy_term, x_recon, multi_mu_z_mean, multi_logvar_z_mean, _ = self.loss(x)
-        entropy_gap_mean, entropy_gap_moment2 = self.inference_entropy_gap_m_p(x)
+        entropy_gap_mean, entropy_gap_moment2, singh_entropy_term = self.inference_entropy_gap_m_p(x)
         self.log("test_loss", loss)
         self.log("test_kl", kl_term)
         self.log("entropy gap--m_p", entropy_gap_mean)
         self.log("entropy gap second moment", entropy_gap_moment2)
-        # self.log("val_reconstruction", reconstruction_term)
-        # self.log("val_entropy", entropy_term)
+        self.log("val_reconstruction", reconstruction_term)
+        self.log("val_entropy", entropy_term)
+        self.log("singh_entropy_H_m", singh_entropy_term)
         self.log("test_multi_mu_z_mean", multi_mu_z_mean)
         self.log("test_multi_logvar_z_mean", multi_logvar_z_mean)
         

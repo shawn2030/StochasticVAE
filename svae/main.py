@@ -62,7 +62,7 @@ def main():
     #####################
 
     logger = MLFlowLogger(
-        experiment_name="LitSVAE",
+        experiment_name="LitSVAE_inference",
         tracking_uri=MLFLOW_TRACKING_URI,
         log_model=True,
     )
@@ -98,8 +98,6 @@ def main():
     # ablation study Part 2 --- freeze decoder
     if args.freeze_decoder:
         checkpoint = torch.load("603393962448548868/bc47b5faee3e4618aa8232ae44fb7980/checkpoints/epoch=999-step=469000.ckpt", map_location="cpu")
-
-        # init_params = {k: p.detach().clone() for k, p in svae.named_parameters()}
 
         for name, param in svae.named_parameters():
             if 'decoder' in name:
@@ -145,7 +143,7 @@ def main():
                         "stage": "testing_inference",
                         "data": "validation",
                         "author": "Shounak Desai",
-                        "model": "Stochastic VAE",
+                        "model": "SVAE",
                         "lambda": LAMBDA,
                         })
                         

@@ -55,19 +55,20 @@ def plot_inference_goodness(df):
     plt.title("Inference Goodness vs Lambda (SVAE)")
     plt.grid(True, axis='y', linestyle='--', alpha=0.3)
     # plt.xticks(rotation=45)
-    plt.ylim(1400)
+    plt.ylim(-1600, -1400)
     plt.tight_layout()
     plt.savefig('svae/plots/lambda_v_inference_goodness_mcse.png')
     plt.show()
 
 
 def main():
-    experiment_name = "LitSVAE"
+    experiment_name = "LitSVAE_inference"
     experiment = mlflow.get_experiment_by_name(experiment_name)
     experiment_id = experiment.experiment_id
-    tag_filter = "tags.stage = 'testing_inference'"
+    # tag_filter = "tags.stage = 'testing inference--entropy gap'"
+    # runs_df = mlflow.search_runs(experiment_ids=experiment_id, filter_string=tag_filter)
     runs_df = mlflow.search_runs(experiment_ids=experiment_id)
-    # print(runs_df.columns)
+    # print(runs_df['metrics.Test ELBO'])
 
     plot_inference_goodness(runs_df)
 

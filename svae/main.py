@@ -137,7 +137,18 @@ def main():
         # checkpoint = torch.load("603393962448548868/f24fee43e7df4b5caf4cf19077bfae2b/checkpoints/epoch=999-step=469000.ckpt")
 
         # pretrained on Lambda = 100 trained with a frozen decoder
-        checkpoint = torch.load("603393962448548868/33995e5dfa3a493ab7675265f76e9e6f/checkpoints/epoch=999-step=469000.ckpt")
+        # checkpoint = torch.load("603393962448548868/33995e5dfa3a493ab7675265f76e9e6f/checkpoints/epoch=999-step=469000.ckpt")
+
+        # pretrained on Lambda = 10000 trained with a frozen decoder
+        # checkpoint = torch.load("787431091796413946/90a270e8931c43b085ac997dbe56b559/checkpoints/epoch=199-step=93800.ckpt")
+
+
+        # pretrained on Lambda = 10^8 trained with a frozen decoder
+        checkpoint = torch.load("787431091796413946/98c0651d17fe4354ac00ab10945350eb/checkpoints/epoch=199-step=93800.ckpt")
+
+        # pretrained on Lambda = 10^16 trained with a frozen decoder
+        # checkpoint = torch.load("787431091796413946/f102f1daca8d47fba707e96ade273ca5/checkpoints/epoch=999-step=469000.ckpt")
+
 
         mlflow.set_tags({
                         "stage": "testing_inference",

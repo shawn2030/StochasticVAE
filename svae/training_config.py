@@ -8,7 +8,7 @@ PLAN = [500, 300, 200, 100, 50]
 PLAN_DECODER = [50, 100, 300, 500]
 LATENT_DIM = 20
 EPSILON = 1e-6
-LAMBDA = 10e+16      # range [1, +inf]
+LAMBDA = 10e+8      # range [1, +inf]
 NUMBER_OF_NEAREST_NEIGHBORS = 4
 N_FORWARD_PASS = 8
 #####################
@@ -16,7 +16,7 @@ N_FORWARD_PASS = 8
 #####################
 
 LEARNING_RATE = 1e-5
-EPOCHS = 1000
+EPOCHS = 200
 BATCH_SIZE = 128
 USER_INPUT_LOGVAR = -10    # Make this a function of Epochs Deterministci -> Stochastic
 

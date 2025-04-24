@@ -61,7 +61,7 @@ class Stochastic_VAE(lit.LightningModule):
             dim_samples=self.n_forward_dim,
             dim_features=self.z_dim,
         )
-        fim_term = 0.5 * self.log_det_fisher(multi_mu_z, multi_logvar_z).mean(dim=self.n_forward_dim)
+        fim_term = self.log_det_fisher(multi_mu_z, multi_logvar_z).mean(dim=self.n_forward_dim)
 
 
         # Sample from the approximate posterior

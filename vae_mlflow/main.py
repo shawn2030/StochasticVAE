@@ -108,7 +108,7 @@ def calculate_entropy_gap(test_loader, vae, device):
             x = x.to(device)
             x = x.view(x.size(0), -1)  # Flatten
             elbo, _, _, _=  vae.loss(x)
-            mlflow.log_metric("Test ELBO", elbo)
+            mlflow.log_metric("Test ELBO", -elbo)
 
 
 

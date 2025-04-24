@@ -1,4 +1,6 @@
 import torch
+PLAN_DECODER = [50, 100, 300, 500]
+
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 

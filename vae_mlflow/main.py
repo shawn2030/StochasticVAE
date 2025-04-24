@@ -16,10 +16,13 @@ import mlflow
 from pathlib import Path
 from argparse import ArgumentParser
 
+from stochastic_density_network import Stochastic_Density_NN
+
+
 
 mlflow.set_experiment("LitSVAE_inference")
 mlflow.set_tags({
-                        "stage": "testing inference--entropy gap",
+                        "stage": "training inference",
                         "data": "validation",
                         "author": "Shounak Desai",
                         "model": "VAE",
@@ -119,7 +122,7 @@ def main():
     )
     val_loader = DataLoader(dataset=val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=8, pin_memory=True)
 
-    vae = VAE(RecognitionModel(LATENT_DIM), DensityNet(LATENT_DIM))
+    vae = VAE(RecognitionModel(LATENT_DIM), Stochastic_Density_NN(input_dim=784, z_dim=LATENT_DIM))
     vae.parameters()  # [e.fc1, e.fc21, e.fc22, d.fc3, d.fc4, d.logvar]
 
     optim_vae = torch.optim.Adam(vae.parameters(), lr=LR_RATE)
@@ -136,15 +139,18 @@ def main():
 
 
     if args.inference_entropy:
+        if mlflow.active_run():
+            mlflow.end_run()
         checkpoint = torch.load("603393962448548868/bc47b5faee3e4618aa8232ae44fb7980/checkpoints/epoch=999-step=469000.ckpt", map_location="cpu")
 
         for name, param in vae.named_parameters():
             if 'decoder' in name:
                 param.data = checkpoint["state_dict"][name]
                 param.requires_grad = False
-
-        vae = train_model(train_loader, vae, optim_vae, DEVICE, NUM_EPOCHS)
-        calculate_entropy_gap(val_loader, vae, DEVICE)
+        
+        with mlflow.start_run(run_name="VAE") as run:
+            vae = train_model(train_loader, vae, optim_vae, DEVICE, NUM_EPOCHS)
+            calculate_entropy_gap(val_loader, vae, DEVICE)
 
 
 

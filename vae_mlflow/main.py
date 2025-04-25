@@ -143,6 +143,16 @@ def main():
             mlflow.end_run()
         checkpoint = torch.load("603393962448548868/bc47b5faee3e4618aa8232ae44fb7980/checkpoints/epoch=999-step=469000.ckpt", map_location="cpu")
 
+        saved_params = set(checkpoint["state_dict"].keys())
+        my_params = set(vae.state_dict().keys())
+
+        common_params = saved_params.intersection(my_params)
+        unique_params_mine = my_params - saved_params
+        unique_params_saved = saved_params - my_params
+        print("Common parameters:", common_params)
+        print("Unique parameters in saved:", unique_params_saved)
+        print("Unique parameters in mine:", unique_params_mine)
+        exit(0)
         for name, param in vae.named_parameters():
             if 'decoder' in name:
                 param.data = checkpoint["state_dict"][name]

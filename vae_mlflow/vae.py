@@ -20,26 +20,7 @@ class VAE(nn.Module):
         z = mu_z + eps * std
 
         return z
-
-    def entropy_gap(self, x):
-        mu_z, logvar_z = self.encoder(x)
-
-        z = self.reparameterize(mu_z, logvar_z)
-        z = z.view((-1, LATENT_DIM))
-
-        x_recon = self.decoder(z)
-
-        reconstruction_term = self.decoder.log_likelihood(x, x_recon).sum()
-        log_p_z = self.decoder.log_likelihood_gaussian(z, torch.zeros(1, device = z.device), torch.zeros(1, device = z.device)).mean(
-            dim=0
-        )
-
-        entropy_gap = (reconstruction_term + log_p_z)
-
-        mean = entropy_gap.mean()
-        second_moment = (entropy_gap**2).mean()
-
-        return mean, second_moment    
+   
 
     def loss(self, x):
 

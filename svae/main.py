@@ -139,7 +139,7 @@ def main(
         checkpoint = torch.load(
             mlflow.artifacts.download_artifacts(
                 run_id=load_decoder_from_run,
-                artifact_path="model/checkpoints/epoch=199-step=48000/epoch=199-step=48000.ckpt",
+                artifact_path="model/checkpoints/epoch=99-step=20000/epoch=99-step=20000.ckpt",
             )
         )
 
@@ -166,8 +166,8 @@ if __name__ == "__main__":
     parser.add_argument("--lambda", dest="lambda_", type= float, default= 2.0),
     parser.add_argument("--number_of_nearest_neighbors", type= int, default= 4),
     parser.add_argument("--n_forward_pass", type= int, default= 8),
-    parser.add_argument("--learning_rate", type= float, default= 1e-5),
-    parser.add_argument("--epochs", type= int, default= 200),
+    parser.add_argument("--learning_rate", type= float, default= 1e-3),
+    parser.add_argument("--epochs", type= int, default= 100),
     parser.add_argument("--batch_size", type= int, default= 250),
     parser.add_argument("--user_input_logvar", type= float, default= -10),
     parser.add_argument("--ablate_entropy", type= bool, default= False),

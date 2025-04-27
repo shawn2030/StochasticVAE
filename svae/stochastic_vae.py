@@ -246,7 +246,7 @@ class Stochastic_VAE(lit.LightningModule):
         self.log("goodness_moment2", terms["moment2"])
 
         # Log images generated from the prior
-        z = torch.randn(64, 1, self.latent_dim, device=self.device)
+        z = torch.randn(64, 1, self.encoder.d, device=self.device)
         gen_images = self.decoder(z)
         gen_img_grid = make_grid(gen_images.view(-1, 1, 28, 28), nrow=8)
         with tempfile.TemporaryDirectory() as temp_dir:

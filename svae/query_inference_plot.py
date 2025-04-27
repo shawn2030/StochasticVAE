@@ -1,76 +1,75 @@
-from mlflow.tracking import MlflowClient
-import pandas as pd
+from pathlib import Path
+
 import matplotlib.pyplot as plt
-import math
-import numpy as np
-from training_config import BATCH_SIZE, EPOCHS, MLFLOW_TRACKING_URI
 import mlflow
+import numpy as np
+import pandas as pd
 import seaborn as sns
+from mlflow.tracking import MlflowClient
+from nn_lib.utils import search_runs_by_params
+from torchvision import datasets, transforms
+
+from main import DATA_ROOT
 
 client = MlflowClient()
 
 
+def barplot_with_custom_errors(data, x, y, yerr, **kwargs):
+    data_low = data.copy()
+    data_hi = data.copy()
+    data_low[y] = data[y] - data[yerr]
+    data_hi[y] = data[y] + data[yerr]
+    data_combo = pd.concat([data_low, data, data_hi], axis=0).reset_index()
 
-def calculate_inference_goodness(run):
-    return np.sqrt((run['metrics.entropy gap second moment'] - (run['metrics.entropy gap--m_p']**2) ) / (79 * BATCH_SIZE))
+    def calculate_errors(low_mid_hi):
+        return np.min(low_mid_hi), np.max(low_mid_hi)
+
+    return sns.barplot(data_combo, x=x, y=y, errorbar=calculate_errors, **kwargs)
 
 
-def plot_inference_goodness(df):
-    plot_data = []
-    # print(df.columns)
-    # exit(0)
-    for index, row in df.iterrows():
-        try:
-            lam = float(row['params.LAMBDA'])
-            ig = calculate_inference_goodness(row)
-            entropy_gap = row['metrics.entropy gap--m_p']
-            run_dict = {
-                        'lambda': lam, 
-                        'entropy gap': entropy_gap,
-                        'inference goodness': ig
-                        }
-            plot_data.append(run_dict)
-        except Exception as e:
-            print(f"Skipping run {row['run_id']} due to error: {e}")
-            continue
-
-    plot_df = pd.DataFrame(plot_data)
-    print(plot_df)
-    plot_df = plot_df.sort_values(by='lambda')
-
-    plt.figure(figsize=(8, 6))
-    sns.barplot(x=plot_df["lambda"], y=plot_df["entropy gap"], data=plot_df, palette="Blues_d")
-    plt.errorbar(
-        x=np.arange(len(plot_df['lambda'])),
-        y=plot_df['entropy gap'],
-        yerr=plot_df['inference goodness'],
-        fmt='none',
-        capsize=5,
-        ecolor='black',
-        elinewidth=1,
+def plot_inference_goodness(plot_df):
+    ds = datasets.MNIST(
+        root=Path(DATA_ROOT) / "mnist", train=False, transform=transforms.ToTensor()
     )
 
+    plot_df["goodness_standard_error"] = np.sqrt(
+        (plot_df["metrics.goodness_moment2"] - (plot_df["metrics.goodness_moment1"] ** 2)) / len(ds)
+    )
+    plot_df["goodness_relative"] = plot_df["metrics.goodness_moment1"] - plot_df[plot_df["params.lambda_"] == "inf"]["metrics.goodness_moment1"].values[0]
+    plot_df["params.lambda_"] = plot_df["params.lambda_"].astype(float)
+    plot_df["params.user_input_logvar_f"] = plot_df["params.user_input_logvar"].astype(float)
+    plot_df = plot_df.sort_values(["params.user_input_logvar_f", "params.lambda_"])
+
+    plt.figure(figsize=(8, 6))
+    barplot_with_custom_errors(
+        data=plot_df,
+        x="params.lambda_",
+        y="goodness_relative",
+        yerr="goodness_standard_error",
+        hue="params.user_input_logvar",
+    )
     plt.xlabel("Lambda")
-    plt.ylabel("Inference Goodness with MCSE")
-    plt.title("Inference Goodness vs Lambda (SVAE)")
-    plt.grid(True, axis='y', linestyle='--', alpha=0.3)
-    # plt.xticks(rotation=45)
-    plt.ylim(-1600, -1400)
+    plt.ylabel("$KL(m(z|x)||p(z|x)) + C$")
+    plt.title("Qualitity of Inference")
+    plt.grid(True, axis="y", linestyle="--", alpha=0.3)
     plt.tight_layout()
-    plt.savefig('svae/plots/lambda_v_inference_goodness_mcse.png')
     plt.show()
+    plt.savefig("plots/lambda_v_inference_goodness_mcse.png", dpi=300)
 
 
 def main():
-    experiment_name = "LitSVAE_inference"
-    experiment = mlflow.get_experiment_by_name(experiment_name)
-    experiment_id = experiment.experiment_id
-    # tag_filter = "tags.stage = 'testing inference--entropy gap'"
-    # runs_df = mlflow.search_runs(experiment_ids=experiment_id, filter_string=tag_filter)
-    runs_df = mlflow.search_runs(experiment_ids=experiment_id)
-    # print(runs_df['metrics.Test ELBO'])
+    mlflow.set_tracking_uri("/data/projects/SVAE/mlruns")
+    runs_df = search_runs_by_params(
+        experiment_name="LitSVAE_RDL",
+        params={
+            "decoder_source": "37abd9dfafa647ecbdf484d76a04f169",
+            # "user_input_logvar": "-10.0",
+        },
+        finished_only=True,
+    )
 
     plot_inference_goodness(runs_df)
+
 
 if __name__ == "__main__":
     main()

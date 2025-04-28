@@ -11,13 +11,10 @@ LAMBDAS=(
   "5.0"
   "10.0"
   "100.0"
-  "1000.0"
 )
 
 LOGVARS=(
   "-10"
-  "-5"
-  "-3"
 )
 
 DECODER_RUN="37abd9dfafa647ecbdf484d76a04f169"
@@ -26,7 +23,7 @@ DECODER_RUN="37abd9dfafa647ecbdf484d76a04f169"
 echo "Training VAE with frozen decoder"
     python svae/main.py \
       --learning_rate=1e-3 \
-      --epochs=100 \
+      --epochs=1000 \
       --lambda="inf" \
       --user_input_logvar="-inf" \
       --load_decoder_from_run="$DECODER_RUN" || exit 1
@@ -37,7 +34,7 @@ for LOGVAR in "${LOGVARS[@]}"; do
     python svae/main.py \
       --lambda="$LAMBDA" \
       --learning_rate=1e-3 \
-      --epochs=100 \
+      --epochs=1000 \
       --user_input_logvar="$LOGVAR" \
       --load_decoder_from_run="$DECODER_RUN" || exit 1
   done

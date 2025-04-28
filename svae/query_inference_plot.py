@@ -35,10 +35,12 @@ def plot_inference_goodness(plot_df):
     plot_df["goodness_standard_error"] = np.sqrt(
         (plot_df["metrics.goodness_moment2"] - (plot_df["metrics.goodness_moment1"] ** 2)) / len(ds)
     )
-    plot_df["goodness_relative"] = plot_df["metrics.goodness_moment1"] - plot_df[plot_df["params.lambda_"] == "inf"]["metrics.goodness_moment1"].values[0]
+    plot_df["goodness_relative"] = (
+        plot_df["metrics.goodness_moment1"]
+        - plot_df[plot_df["params.lambda_"] == "inf"]["metrics.goodness_moment1"].values[0]
+    )
     plot_df["params.lambda_"] = plot_df["params.lambda_"].astype(float)
-    plot_df["params.user_input_logvar_f"] = plot_df["params.user_input_logvar"].astype(float)
-    plot_df = plot_df.sort_values(["params.user_input_logvar_f", "params.lambda_"])
+    plot_df = plot_df.sort_values("params.lambda_")
 
     plt.figure(figsize=(8, 6))
     barplot_with_custom_errors(
@@ -57,18 +59,43 @@ def plot_inference_goodness(plot_df):
     plt.savefig("plots/lambda_v_inference_goodness_mcse.png", dpi=300)
 
 
+def plot_loss_terms(plot_df):
+    plot_df["params.lambda_"] = plot_df["params.lambda_"].astype(float)
+    plot_df = plot_df.sort_values("params.lambda_")
+
+    plot_df["ELBO"] = plot_df["metrics.val_reconstruction"] - plot_df["metrics.val_kl"]
+    plot_df["MI"] = plot_df["metrics.val_entropy"] + 1 / 2 * plot_df["metrics.val_fischer_information_matrix"]
+
+    sns.barplot(plot_df, x="params.lambda_", y="ELBO", hue="params.user_input_logvar")
+    plt.xlabel("Lambda")
+    plt.ylabel("ELBO")
+    plt.title("ELBO")
+    plt.grid(True, axis="y", linestyle="--", alpha=0.3)
+    plt.tight_layout()
+    plt.show()
+
+    sns.barplot(plot_df, x="params.lambda_", y="MI", hue="params.user_input_logvar")
+    plt.xlabel("Lambda")
+    plt.ylabel("MI")
+    plt.title("(Approximate) Mutual Information")
+    plt.grid(True, axis="y", linestyle="--", alpha=0.3)
+    plt.tight_layout()
+    plt.show()
+
+
 def main():
     mlflow.set_tracking_uri("/data/projects/SVAE/mlruns")
-    runs_df = search_runs_by_params(
+    df = search_runs_by_params(
         experiment_name="LitSVAE_RDL",
         params={
             "decoder_source": "37abd9dfafa647ecbdf484d76a04f169",
-            # "user_input_logvar": "-10.0",
+            "epochs": 1000,
         },
         finished_only=True,
     )
 
-    plot_inference_goodness(runs_df)
+    plot_inference_goodness(df)
+    plot_loss_terms(df)
 
 
 if __name__ == "__main__":

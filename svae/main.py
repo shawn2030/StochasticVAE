@@ -35,7 +35,8 @@ def main(
     user_input_logvar: float = -10,
     ablate_entropy: bool = False,
     ablate_fim: bool = False,
-    load_decoder_from_run: str = None,
+    load_model_from_run: str = None,
+    init_encoder: bool = False,
 ):
     ################
     ## Data setup ##
@@ -128,28 +129,27 @@ def main(
             "user_input_logvar": user_input_logvar,
             "ablate_entropy": ablate_entropy,
             "ablate_fim": ablate_fim,
-            "decoder_source": load_decoder_from_run,
+            "decoder_source": load_model_from_run,
         }
     )
 
     # If specified, load decoder weights from a checkpoint and freeze it
-    if load_decoder_from_run:
+    if load_model_from_run:
         # TODO - programmatically load the *best* checkpoint from the run instead of hardcoding
         #  the path
         checkpoint = torch.load(
             mlflow.artifacts.download_artifacts(
-                run_id=load_decoder_from_run,
+                run_id=load_model_from_run,
                 artifact_path="model/checkpoints/epoch=99-step=20000/epoch=99-step=20000.ckpt",
             )
         )
 
-        decoder_state_dict = {
-            k.split(".", 1)[1]: v
-            for k, v in checkpoint["state_dict"].items()
-            if k.startswith("decoder")
-        }
+        def _keep_param(param_name):
+            return param_name.startswith("decoder") or (init_encoder and "logvar" not in param_name)
 
-        svae.decoder.load_state_dict(decoder_state_dict)
+        state_dict_to_load = {k: v for k, v in checkpoint["state_dict"].items() if _keep_param(k)}
+
+        svae.load_state_dict(state_dict_to_load, strict=False)
         for param in svae.decoder.parameters():
             param.requires_grad = False
 
@@ -162,17 +162,18 @@ def main(
 
 if __name__ == "__main__":
     parser = ArgumentParser()
-    parser.add_argument("--latent_dim", type= int, default= 20),
-    parser.add_argument("--lambda", dest="lambda_", type= float, default= 2.0),
-    parser.add_argument("--number_of_nearest_neighbors", type= int, default= 4),
-    parser.add_argument("--n_forward_pass", type= int, default= 8),
-    parser.add_argument("--learning_rate", type= float, default= 1e-3),
-    parser.add_argument("--epochs", type= int, default= 100),
-    parser.add_argument("--batch_size", type= int, default= 250),
-    parser.add_argument("--user_input_logvar", type= float, default= -10),
-    parser.add_argument("--ablate_entropy", type= bool, default= False),
-    parser.add_argument("--ablate_fim", type= bool, default= False),
-    parser.add_argument("--load_decoder_from_run", type= str, default= None),
+    parser.add_argument("--latent_dim", type=int, default=20),
+    parser.add_argument("--lambda", dest="lambda_", type=float, default=2.0),
+    parser.add_argument("--number_of_nearest_neighbors", type=int, default=4),
+    parser.add_argument("--n_forward_pass", type=int, default=8),
+    parser.add_argument("--learning_rate", type=float, default=1e-3),
+    parser.add_argument("--epochs", type=int, default=100),
+    parser.add_argument("--batch_size", type=int, default=250),
+    parser.add_argument("--user_input_logvar", type=float, default=-10),
+    parser.add_argument("--ablate_entropy", type=bool, default=False),
+    parser.add_argument("--ablate_fim", type=bool, default=False),
+    parser.add_argument("--load_model_from_run", type=str, default=None),
+    parser.add_argument("--init_encoder", action="store_true", default=False)
     args = parser.parse_args()
 
     # Only let lightning 'see' one GPU, but can be overridden by setting the environment variable

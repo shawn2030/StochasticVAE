@@ -1,33 +1,43 @@
-import lightning as lit
-from lightning.pytorch.loggers import MLFlowLogger
-from torchvision import transforms
-import torchvision.datasets as datasets
-from torch.utils.data import DataLoader
-from training_config import (
-    EPOCHS,
-    BATCH_SIZE,
-    LATENT_DIM,
-    MLFLOW_TRACKING_URI,
-    DATA_ROOT,
-    PLAN,
-    PLAN_DECODER,
-    LEARNING_RATE,
-    USER_INPUT_LOGVAR,
-    LAMBDA,
-    N_FORWARD_PASS,
-    NUMBER_OF_NEAREST_NEIGHBORS
-)
-from stochastic_vae import Stochastic_VAE
-from stochastic_recognition_model import Stochastic_Recognition_NN
-from stochastic_density_network import Stochastic_Density_NN
-from pathlib import Path
+import os
 from argparse import ArgumentParser
-import torch
+from pathlib import Path
+from typing import Iterable
+
+import lightning as lit
 import mlflow
+import torch
+import torchvision.datasets as datasets
+from lightning.pytorch.loggers import MLFlowLogger
+from torch.utils.data import DataLoader
+from torchvision import transforms
+
+from stochastic_density_network import Stochastic_Density_NN
+from stochastic_recognition_model import Stochastic_Recognition_NN
+from stochastic_vae import Stochastic_VAE
 
 
+torch.set_float32_matmul_precision("high")
+ENCODER_PLAN = [500, 300, 200, 100, 50]
+DECODER_PLAN = [50, 100, 300, 500]
+MLFLOW_TRACKING_URI = "/data/projects/SVAE/mlruns/"
+MLFLOW_EXPERIMENT = "LitSVAE_RDL"
+DATA_ROOT = "/data/datasets/"
 
-def main():
+
+def main(
+    latent_dim: int = 20,
+    lambda_: float = 2.0,
+    number_of_nearest_neighbors: int = 4,
+    n_forward_pass: int = 8,
+    learning_rate: float = 1e-5,
+    epochs: int = 200,
+    batch_size: int = 250,
+    user_input_logvar: float = -10,
+    ablate_entropy: bool = False,
+    ablate_fim: bool = False,
+    load_model_from_run: str = None,
+    init_encoder: bool = False,
+):
     ################
     ## Data setup ##
     ################
@@ -35,40 +45,69 @@ def main():
     train_dataset = datasets.MNIST(
         root=Path(DATA_ROOT) / "mnist", train=True, transform=transforms.ToTensor()
     )
-    train_loader = DataLoader(dataset=train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=4, pin_memory=True)
-    val_dataset = datasets.MNIST(
+    train_dataset, val_dataset = torch.utils.data.random_split(
+        train_dataset, [50000, 10000], generator=torch.Generator().manual_seed(123456)
+    )
+    train_loader = DataLoader(
+        dataset=train_dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        num_workers=4,
+        pin_memory=True,
+    )
+    val_loader = DataLoader(
+        dataset=val_dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=4,
+        pin_memory=True,
+    )
+    test_dataset = datasets.MNIST(
         root=Path(DATA_ROOT) / "mnist", train=False, transform=transforms.ToTensor()
     )
-    val_loader = DataLoader(dataset=val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=4, pin_memory=True)
+    test_loader = DataLoader(
+        dataset=test_dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=4,
+        pin_memory=True,
+    )
 
     #################
     ## Model setup ##
     #################
 
-    ablate_entropy = args.ablate_entropy    # Ablation Study part 1: Ablate Entropy 
-    ablate_fim = args.ablate_fim            # Ablation Study part 2: Ablate Fischer Information Matrix
-
     svae = Stochastic_VAE(
-        Stochastic_Recognition_NN(input_dim=784, z_dim=LATENT_DIM, user_input_logvar=USER_INPUT_LOGVAR),
-        Stochastic_Density_NN(input_dim=784, z_dim=LATENT_DIM),
-        k_neighbor=NUMBER_OF_NEAREST_NEIGHBORS,
-        n_forward=N_FORWARD_PASS,
+        Stochastic_Recognition_NN(
+            input_dim=784,
+            latent_dim=latent_dim,
+            user_input_logvar=user_input_logvar,
+            plan=ENCODER_PLAN,
+        ),
+        Stochastic_Density_NN(
+            input_dim=784,
+            latent_dim=latent_dim,
+            plan=DECODER_PLAN,
+        ),
+        lambda_=lambda_,
+        lr=learning_rate,
+        k_neighbor=number_of_nearest_neighbors,
+        n_forward=n_forward_pass,
         ablate_entropy=ablate_entropy,
-        ablate_fim=ablate_fim
+        ablate_fim=ablate_fim,
     )
-
     #####################
     ## Lightning setup ##
     #####################
 
     logger = MLFlowLogger(
-        experiment_name="LitSVAE_inference",
+        experiment_name=MLFLOW_EXPERIMENT,
         tracking_uri=MLFLOW_TRACKING_URI,
         log_model=True,
     )
     trainer = lit.Trainer(
         logger=logger,
-        max_epochs=EPOCHS,
+        max_epochs=epochs,
         default_root_dir=logger.root_dir,  # TODO - double check that logger.root_dir is right
     )
 
@@ -78,102 +117,67 @@ def main():
 
     logger.log_hyperparams(
         {
-            "PLAN": PLAN,
-            "PLAN_DECODER": PLAN_DECODER,
-            "LATENT_DIM": LATENT_DIM,
-            "LEARNING_RATE": LEARNING_RATE,
-            "EPOCHS": EPOCHS,
-            "BATCH_SIZE": BATCH_SIZE,
-            "USER_INPUT_LOGVAR": USER_INPUT_LOGVAR,
-            "LAMBDA" : LAMBDA,
-            "N_FORWARD_PASS" : N_FORWARD_PASS,
-            "NUMBER_OF_NEAREST_NEIGHBORS" : NUMBER_OF_NEAREST_NEIGHBORS
+            "encoder_plan": ENCODER_PLAN,
+            "decoder_plan": DECODER_PLAN,
+            "latent_dim": latent_dim,
+            "lambda_": lambda_,
+            "number_of_nearest_neighbors": number_of_nearest_neighbors,
+            "n_forward_pass": n_forward_pass,
+            "learning_rate": learning_rate,
+            "epochs": epochs,
+            "batch_size": batch_size,
+            "user_input_logvar": user_input_logvar,
+            "ablate_entropy": ablate_entropy,
+            "ablate_fim": ablate_fim,
+            "decoder_source": load_model_from_run,
         }
     )
 
-    if args.train:
-        trainer.fit(model=svae, train_dataloaders=train_loader, val_dataloaders=val_loader)
+    # If specified, load decoder weights from a checkpoint and freeze it
+    if load_model_from_run:
+        # TODO - programmatically load the *best* checkpoint from the run instead of hardcoding
+        #  the path
+        checkpoint = torch.load(
+            mlflow.artifacts.download_artifacts(
+                run_id=load_model_from_run,
+                artifact_path="model/checkpoints/epoch=99-step=20000/epoch=99-step=20000.ckpt",
+            )
+        )
 
+        def _keep_param(param_name):
+            return param_name.startswith("decoder") or (init_encoder and "logvar" not in param_name)
 
-    # ablation study Part 2 --- freeze decoder
-    if args.freeze_decoder:
-        checkpoint = torch.load("603393962448548868/bc47b5faee3e4618aa8232ae44fb7980/checkpoints/epoch=999-step=469000.ckpt", map_location="cpu")
+        state_dict_to_load = {k: v for k, v in checkpoint["state_dict"].items() if _keep_param(k)}
 
-        for name, param in svae.named_parameters():
-            if 'decoder' in name:
-                param.data = checkpoint["state_dict"][name]
-                param.requires_grad = False
+        svae.load_state_dict(state_dict_to_load, strict=False)
+        for param in svae.decoder.parameters():
+            param.requires_grad = False
 
-        trainer.fit(model=svae, train_dataloaders=train_loader, val_dataloaders=val_loader)
+    # Do training
+    trainer.fit(model=svae, train_dataloaders=train_loader, val_dataloaders=val_loader)
 
-    if args.test:      
-        # TODO - change this checkppint loading to the best model dynamically if possible
-        checkpoint = torch.load("603393962448548868/86612901fb1f45d1bc694a796628f854/checkpoints/epoch=999-step=469000.ckpt")
-        test_svae = Stochastic_VAE(Stochastic_Recognition_NN(input_dim=784, z_dim=LATENT_DIM, user_input_logvar=USER_INPUT_LOGVAR),
-                                Stochastic_Density_NN(input_dim=784, z_dim=LATENT_DIM),
-                                k_neighbor=NUMBER_OF_NEAREST_NEIGHBORS,
-                                n_forward=N_FORWARD_PASS)
-        test_svae.load_state_dict(checkpoint["state_dict"])
-
-        trainer.test(model=test_svae, dataloaders=val_loader)
-
-    if args.infer_entropy_gap:
-        # pretrained on Lambda = 1.1 trained with a frozen decoder
-        # checkpoint = torch.load("603393962448548868/2db153191f05418bb4e5295945b085a3/checkpoints/epoch=999-step=469000.ckpt")
-
-        # pretrained on Lambda = 1.3 trained with a frozen decoder
-        # checkpoint = torch.load("603393962448548868/8653831daef54d948533d50a77029c4a/checkpoints/epoch=999-step=469000.ckpt")
-
-        # pretrained on Lambda = 1.5 trained with a frozen decoder
-        # checkpoint = torch.load("603393962448548868/dfb6769bfc4541adbb6a4fea6f77ec17/checkpoints/epoch=999-step=469000.ckpt")
-
-        # pretrained on Lambda = 2 trained with a frozen decoder
-        # checkpoint = torch.load("603393962448548868/d74ef05ac03a4aa493813ced22a7ae63/checkpoints/epoch=999-step=469000.ckpt")
-
-        # pretrained on Lambda = 5 trained with a frozen decoder
-        # checkpoint = torch.load("603393962448548868/3a4edbb246f54352b1e38a92de2b7848/checkpoints/epoch=999-step=469000.ckpt")
-
-        # pretrained on Lambda = 10 trained with a frozen decoder
-        # checkpoint = torch.load("603393962448548868/f24fee43e7df4b5caf4cf19077bfae2b/checkpoints/epoch=999-step=469000.ckpt")
-
-        # pretrained on Lambda = 100 trained with a frozen decoder
-        # checkpoint = torch.load("603393962448548868/33995e5dfa3a493ab7675265f76e9e6f/checkpoints/epoch=999-step=469000.ckpt")
-
-        # pretrained on Lambda = 10000 trained with a frozen decoder
-        # checkpoint = torch.load("787431091796413946/90a270e8931c43b085ac997dbe56b559/checkpoints/epoch=199-step=93800.ckpt")
-
-
-        # pretrained on Lambda = 10^8 trained with a frozen decoder
-        checkpoint = torch.load("787431091796413946/98c0651d17fe4354ac00ab10945350eb/checkpoints/epoch=199-step=93800.ckpt")
-
-        # pretrained on Lambda = 10^16 trained with a frozen decoder
-        # checkpoint = torch.load("787431091796413946/f102f1daca8d47fba707e96ade273ca5/checkpoints/epoch=999-step=469000.ckpt")
-
-
-        mlflow.set_tags({
-                        "stage": "testing_inference",
-                        "data": "validation",
-                        "author": "Shounak Desai",
-                        "model": "SVAE",
-                        "lambda": LAMBDA,
-                        })
-                        
-        test_svae = Stochastic_VAE(Stochastic_Recognition_NN(input_dim=784, z_dim=LATENT_DIM, user_input_logvar=USER_INPUT_LOGVAR),
-                                Stochastic_Density_NN(input_dim=784, z_dim=LATENT_DIM),
-                                k_neighbor=NUMBER_OF_NEAREST_NEIGHBORS,
-                                n_forward=N_FORWARD_PASS)
-        test_svae.load_state_dict(checkpoint["state_dict"])
-        trainer.test(model=test_svae, dataloaders=val_loader)
-
+    # Do testing (including inference-goodness)
+    trainer.test(model=svae, dataloaders=test_loader)
 
 
 if __name__ == "__main__":
     parser = ArgumentParser()
-    parser.add_argument("--train", default=False)
-    parser.add_argument("--test", default=False)
-    parser.add_argument("--freeze_decoder", default=False)
-    parser.add_argument("--ablate_entropy", default=False)
-    parser.add_argument("--ablate_fim", default=False)
-    parser.add_argument("--infer_entropy_gap", default=False)
+    parser.add_argument("--latent_dim", type=int, default=20),
+    parser.add_argument("--lambda", dest="lambda_", type=float, default=2.0),
+    parser.add_argument("--number_of_nearest_neighbors", type=int, default=4),
+    parser.add_argument("--n_forward_pass", type=int, default=8),
+    parser.add_argument("--learning_rate", type=float, default=1e-3),
+    parser.add_argument("--epochs", type=int, default=100),
+    parser.add_argument("--batch_size", type=int, default=250),
+    parser.add_argument("--user_input_logvar", type=float, default=-10),
+    parser.add_argument("--ablate_entropy", type=bool, default=False),
+    parser.add_argument("--ablate_fim", type=bool, default=False),
+    parser.add_argument("--load_model_from_run", type=str, default=None),
+    parser.add_argument("--init_encoder", action="store_true", default=False)
     args = parser.parse_args()
-    main()
+
+    # Only let lightning 'see' one GPU, but can be overridden by setting the environment variable
+    # CUDA_VISIBLE_DEVICES from outside the script.
+    os.environ["CUDA_VISIBLE_DEVICES"] = os.getenv("CUDA_VISIBLE_DEVICES", "0")
+
+    main(**vars(args))
